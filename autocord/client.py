@@ -56,7 +56,7 @@ class client:
         if str(id) in self.ongoing_tasks:
             del self.ongoing_tasks[str(id)]
         else:
-            raise autocord.TaskNotFoundError('Could not found task with specified id')
+            raise autocord.TaskNotFoundError('Could not find task with specified id')
 
     def CREATE_TASK(self, messages: dict, channel, offset=0, type=0):
         # messages should be a dictionary with the message as the key
