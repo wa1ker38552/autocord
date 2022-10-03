@@ -18,11 +18,11 @@ class utils:
         self.client = client.client
         self.autocord = client
 
-    def FETCH_MESSAGE_HISTORY(self, channel, limit=100):
+    def FETCH_MESSAGE_HISTORY(self, channel, limit=100, retry=True):
         messages = []
         # request message history
 
-        if limit > 100:
+        if limit >= 100:
             request = self.client.get(f'https://discord.com/api/v9/channels/{channel}/messages?limit=100')
         else:
             # fetch leftover amount
@@ -31,7 +31,7 @@ class utils:
         # turn json into <message object>
         messages.extend(query_messages(request.json()))
 
-        if not limit > 100:
+        if not limit > 100 or limit == 100:
             # return messages if already finished checking limit
             return messages
         else:
@@ -42,8 +42,12 @@ class utils:
                 try:
                     # rate limit, retry after
                     if request.json()['message'] == 'The resource is being rate limited.':
-                        time.sleep(request.json()['retry_after'])
-                        request = self.client.get(f'https://discord.com/api/v9/channels/{channel}/messages?limit=100&before={last_message}')
+                        # check if user wants to keep retrying
+                        if retry is True:
+                            time.sleep(request.json()['retry_after'])
+                            request = self.client.get(f'https://discord.com/api/v9/channels/{channel}/messages?limit=100&before={last_message}')
+                        else:
+                            break
 
                 except TypeError:
                     pass
@@ -53,3 +57,4 @@ class utils:
 
             # return data
             return messages
+
