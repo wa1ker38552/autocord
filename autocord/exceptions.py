@@ -8,3 +8,5 @@ class TaskNotFoundError(Exception):
     pass
 class UnauthorizedError(Exception):
     pass
+class ListenerNotFoundError(Exception):
+    pass
