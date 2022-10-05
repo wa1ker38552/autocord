@@ -53,10 +53,37 @@ class loops:
                         break
                     time.sleep(1)
 
+    def AUTO_REPLY(self, channel, indicator, response, type=0):
+        # indicator is the message that you automatically reply to
+        # if a message contains the indicator, it replies
+        if type == 0:
+            Thread(target=lambda: self.AUTO_REPLY(channel, indicator, response, type=1)).start()
+            self.listeners[str(hash(str(channel)+indicator+response))] = {
+                'channel': channel,
+                'indicator': indicator,
+                'response': response
+            }
+            return str(hash(str(channel)+indicator+response))
+        else:
+            # created nested on_message function
+            def on_message(message):
+                print(message.content)
+                if indicator in message.content.lower():
+                    # don't respond to self
+                    if message.author_id != self.autocord.id:
+                        self.autocord.SEND_MESSAGE(response, channel)
+
+            # create listener
+            id = self.CHANNEL_LISTENER(channel, on_message)
+
+            while True:
+                if not str(hash(str(channel)+indicator+response)) in self.listeners:
+                    self.END(id)
+                    break
+
     def END(self, id):
         # end listener by killing thread
         if str(id) in self.listeners:
             del self.listeners[str(id)]
         else:
             raise autocord.ListenerNotFoundError('Could not find listener with specified id')
-
