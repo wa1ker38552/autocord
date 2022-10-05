@@ -6,8 +6,10 @@ class message:
             if not json['attachments']:
                 # embed
                 self.color = hex(json['embeds'][0]['color'])
-                self.description = json['embeds'][0]['description']
-                self.title = json['embeds'][0]['title']
+                try: self.description = json['embeds'][0]['description']
+                except KeyError: self.description = None
+                try: self.title = json['embeds'][0]['title']
+                except KeyError: self.title = None
 
             else:
                 # attachments
