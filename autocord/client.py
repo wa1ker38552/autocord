@@ -27,6 +27,7 @@ class client:
         pass
 
     def FETCH_METADATA(self):
+        # can be used as a function to just refresh metadata
         request = self.client.get('https://discord.com/api/v9/users/@me').json()
 
         # declare attributes
@@ -149,6 +150,43 @@ class client:
 
     def FRIEND_REQUEST(self, id):
         request = self.client.put(f'https://discord.com/api/v9/users/@me/relationships/{id}', json={})
+
+        if request.status_code == 404:
+            raise autocord.NotFoundError(request.json()['message'])
+        elif request.status_code == 400:
+            raise autocord.BadRequestError(request.json()['message'])
+        elif request.status_code == 429:
+            raise autocord.UnauthorizedError(request.json()['message'])
+        return request
+
+    def CHANGE_STATUS(self, message=None, emoji=None):
+        data = {'custom_status': {'text': message, 'emoji_name': emoji}}
+        request = self.client.patch('https://discord.com/api/v9/users/@me/settings', json=data)
+
+        if request.status_code == 404:
+            raise autocord.NotFoundError(request.json()['message'])
+        elif request.status_code == 400:
+            raise autocord.BadRequestError(request.json()['message'])
+        elif request.status_code == 429:
+            raise autocord.UnauthorizedError(request.json()['message'])
+        return request
+
+    def CHANGE_BIO(self, message=None, color=None):
+        # accent color in hex
+        data = {'bio': message, 'accent_color': color}
+        request = self.client.patch('https://discord.com/api/v9/users/%40me/profile', json=data)
+
+        if request.status_code == 404:
+            raise autocord.NotFoundError(request.json()['message'])
+        elif request.status_code == 400:
+            raise autocord.BadRequestError(request.json()['message'])
+        elif request.status_code == 429:
+            raise autocord.UnauthorizedError(request.json()['message'])
+        return request
+
+    def CHANGE_USERNAME(self, username, password):
+        data = {'password': password, 'username': username}
+        request = self.client.patch('https://discord.com/api/v9/users/@me', json=data)
 
         if request.status_code == 404:
             raise autocord.NotFoundError(request.json()['message'])
