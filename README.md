@@ -1,4 +1,5 @@
 # Autocord
+_An easy to use API wrapper centered around automation_
 
 Autocord is a Python API wrapper for Discord centered around automation. Using Autocord, you can easily send messages, create tasks, and much more. The purpose of Autocord is to provide users with less hassle when using requests.
 
@@ -92,13 +93,39 @@ client.BLOCK(id)
 # unblock user with specified id
 client.UNBLOCK(id)
 ```
+
+**Managing Your Account**
+<br>
+Using autocord, you can also manage your account settings such as changing your status, bio, and username. Changing your status, bio, or username is repeatedly is not recommended though, it could get you banned.
+```py
+# all of these methods return request.response objects
+
+# change your status
+client.CHANGE_STATUS(message='This is a new status!')
+# change your status emoji
+client.CHANGE_STATUS(emoji='')
+# changing both
+client.CHANGE_STATUS(message='This is a status with an emoji', emoji='')
+
+# change your bio
+client.CHANGE_BIO(message='This is a new bio!')
+# change your bio accent color
+# takes in a hex or int value as a parameter
+client.CHANGE_STATUS(color=0xffffff)
+# changing both
+client.CHANGE_STATUS(message='This is a bio with color', color=0xffffff)
+
+# change your username
+client.CHANGE_USERNAME('MyNewUsername', 'YOUR PASSWORD')
+```
+
 # Utils
-You can use autocord.utils to preform miscallaneous tasks. To create a util object, initialize it using:
+You can use `autocord.utils` to preform miscallaneous tasks. To create a util object, initialize it using:
 ```py
 client = autocord.client('TOKEN')
 util = autocord.utils(client)
 ```
-autocord.util takes in a client object as a parameter.
+`autocord.util` takes in an `autocord.client` object as a parameter.
 
 **Fetching Channel History**
 <br>
@@ -121,4 +148,59 @@ util.FETCH_MESSAGE_HISTORY(CHANNEL_ID, limit=10000)
 # try fetching 10,000 messages
 # util will return if it gets rate limited
 util.FETCH_MESSAGE_HISTORY(CHANNEL_ID, limit=10000, retry=False)
+```
+
+# Loops
+You can use `autocord.loops` to set up loops centered around your discord account. To create a loop, you have to initialize it by passing in `autocord.client` as a parameter.
+```py
+client = autocord.client('TOKEN')
+loops = autocord.loops(client)
+```
+`autocord.loops` takes in `autocord.client` as a parameter.
+**Listening to Channel**
+<br>
+Using a loop, you can listen to a channel for messages as such:
+```py
+def my_function(message):
+    print(message.content)
+
+loops.CHANNEL_LISTENER(CHANNEL_ID, my_function)
+```
+`loops.CHANNEL_LISTENER()` takes in two required parameters, channel id, and function. The channel id is the channel that you're listening into and the function is the function that the loop calls when it recieves a new message. `loops.CHANNEL_LISTENER` takes in an optional parameters as well.
+```py
+def on_message(message):
+    client.SEND_MESSAGE(f'Message recieved: {message.content}', message.channel.id)
+    
+# creates a regular loop object
+loops.CHANNEL_LISTENER(CHANNEL_ID, on_message)
+
+# set refresh limit for a loop
+# refresh the channel every 60 seconds
+loops.CHANNEL_LISTENER(CHANNEL_ID, on_message, refresh=60)
+```
+Note that the `CHANNEL_LISTENER` function will loop every `refresh` seconds and check for new messages. Once it finds a new message, it will immediately run the function that was specified as a parameter. Hence, if you recieved 30 messages while the loop was still waiting `refresh` seconds, it will activate the function 30 times almost simultaniously.
+<br><br>
+Upon running the function specified in the parameters, the loop will run a function and pass in a `autocord.message` object as a parameter. 
+
+**Auto Response**
+<br>
+Additionally, `autocord.loops` can automatically return a response while running a loop. This can be done using `loops.AUTO_REPLY()`. Auto reply takes in three required parameters. These include, channel, indicator, and response. The channel is the channel that you're listening into. The indicator is the keyword that you're looking for in an message, and the response is the response that you give to the message.
+```py
+# automatically response to any message with 'hi' in it with 'Hi there!' on CHANNEL_ID
+loops.AUTO_REPLY(CHANNEL_ID, 'hi', 'Hi there!')
+```
+You can also specify a `include_self` parameter to specify whether or not you want to respond to your own messages.
+```py
+loops.AUTO_REPLY(CHANNEL_ID, '!ping', 'pong', include_self=True)
+```
+**Ending a Loop**
+<br>
+All loop functions return an id which you can use to end a loop's thread. You can also call `self.listeners` to locate any running loops.
+```py
+loops = autocord.loops(client)
+
+# run a loop for 2 hours
+id = loops.CHANNEL_LISTENER(CHANNEL_ID, on_message)
+time.sleep(7200)
+loops.END(id)
 ```
