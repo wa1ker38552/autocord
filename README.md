@@ -1,4 +1,7 @@
 # Autocord
+
+<img src="https://user-images.githubusercontent.com/100868154/194678190-1f7321df-7fa2-47eb-8abd-7f9ee9c11093.png" width=200; height=200;></img>
+
 _An easy to use API wrapper centered around automation_
 
 Autocord is a Python API wrapper for Discord centered around automation. Using Autocord, you can easily send messages, create tasks, and much more. The purpose of Autocord is to provide users with less hassle when using requests.
