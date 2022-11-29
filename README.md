@@ -73,7 +73,7 @@ for task in client.ongoing_tasks:
 ```
 **Creating Groups**
 <br>
-You can also create discord groups using `self.CREATE_GROUP(users)`. `CREATE_GROUP` takes in a list of user id's as a paramter. Creating a group with return a `request.response` object.
+You can also create discord groups using `self.CREATE_GROUP(users)`. `CREATE_GROUP` takes in a list of user id's as a parameter. Creating a group with return a `request.response` object.
 ```py
 # create a group with user id's 000000 and 111111
 client.CREATE_GROUP([000000, 111111])
