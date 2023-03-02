@@ -63,7 +63,6 @@ class Client:
     while True:
       data = json.loads(self.ws.recv())
       if data["op"] == op.DISPATCH:        
-        print(data['t'])
         if data['t'] == 'MESSAGE_DELETE':
           if self.return_type == 'json': data = data['d']
           else: data = Deleted(data['d'])
@@ -90,7 +89,6 @@ class Client:
     if response['op'] != 10:
       raise errors.UnexpectedSocketResponse('Try running the application again')
     else:
-      print('Connected to gateway')
       self.hb_interval = (response["d"]["heartbeat_interval"]-2000)/1000
       Thread(target=self.send_heartbeat).start()
       Thread(target=self.recieve_messages).start()
