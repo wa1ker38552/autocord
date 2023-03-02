@@ -1,32 +1,37 @@
-<p align="center">
-<img src="https://user-images.githubusercontent.com/100868154/194678409-60841a51-f066-4aa0-817f-670f7d3b8b4c.png" width=auto; height=auto;></img>
-</p>
-
+![autocord banner 2](https://user-images.githubusercontent.com/100868154/222307879-ca12be88-c816-47dc-8769-b8e39dbdd986.png)
 
 _An easy to use API wrapper centered around automation_
 
-Autocord is a Python API wrapper for Discord centered around automation. Using Autocord, you can easily send messages, create tasks, and much more. The purpose of Autocord is to provide users with less hassle when using requests.
+Autocord is a Python API wrapper for Discord centered around automation. Using Autocord, you can easily automate the boring stuff using Python. Features include, sending and recieving messages, changing settings, and creating tasks. Autocord helps you easily make selfbots without the hassle of using discord.py and absolutely none of that intents bs. Syntax is pretty straightforward, quite similar to discord py.
 
-**Installing**
-<br>
-Requires `python>3.7`
-<br>
+**Installing ⚙️** <br>
+Requires:
+- requests > 2.28.2
+- websocket > 1.5.1 `pip install websocket_client`
+- asyncio (aiohttp > 3.8.3)<br>
+
 `pip install autocord`
 
-**Quick Example**
+**Features ✨**
+- Option to return data as JSON or Object
+- Easy selfbot setup
+- Easily customizable
+
+**Quick Example ⚡**
 ```py
-# inialize autocord client
-client = autocord.client('TOKEN')
+import autocord
 
-# send the message 'hi'
-client.SEND_MESSAGE('Hi', CHANNEL_ID)
+client = autocord.Client('TOKEN')
 
-# create a task that sends the message 'hi' every 5 seconds
-id = client.CREATE_TASK({'Hi', 5}, CHANNEL_ID)
-print(client.ongoing_tasks)
-
-# end the task
-client.END_TASK(id)
+@client.event
+async def on_ready():
+    print(f"Logged in as: {client.user}")
+    
+@client.event
+async def on_message(message):
+    print(f"{message.author}: {message.content}")
+    
+client.run()
 ```
 
 # Client
