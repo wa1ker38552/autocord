@@ -36,12 +36,6 @@ class Client:
               "$os": "windows",
               "$browser": "chrome",
               "$device": "pc"
-          },
-          "presence": {
-            "game": {
-                "name": "your mom",
-                "type": 0
-            }
           }
         }
     
@@ -56,7 +50,7 @@ class Client:
     elif func.__name__ == 'on_message_delete':
       self.on_message_delete.append(func)
 
-  def send(self, event, payload):
+  def send_ws(self, event, payload):
     self.ws.send(json.dumps({"op": event, "d": payload}))
 
   def recieve_messages(self):
@@ -77,13 +71,13 @@ class Client:
 
   def send_heartbeat(self):
     while self.hb_interval is not None:
-      self.send(op.HEARTBEAT, self.auth)
+      self.send_ws(op.HEARTBEAT, self.auth)
       time.sleep(self.hb_interval)
 
   def connect(self):
     self.ws = websocket.WebSocket()
     self.ws.connect(self.ws_url)
-    self.send(op.IDENTIFY, self.auth)
+    self.send_ws(op.IDENTIFY, self.auth)
     response = json.loads(self.ws.recv())
 
     if response['op'] != 10:
@@ -92,7 +86,44 @@ class Client:
       self.hb_interval = (response["d"]["heartbeat_interval"]-2000)/1000
       Thread(target=self.send_heartbeat).start()
       Thread(target=self.recieve_messages).start()
-      
+
+  # Client functions
+  async def send(self, id: int, content: str=None, attachments: list=None) -> Message:
+    data = self.client.post(
+      f'https://discord.com/api/v9/channels/{id}/messages',
+      json={'content': content}
+    )
+    data = data.json()
+    try:
+      data['errors']
+      if 'channel_id' in data['errors']:
+        raise errors.InvalidFormBody(data['errors']['channel_id']['_errors'][0]['message'])
+      elif 'content' in data['errors']:
+        raise errors.InvalidFormBody(data['errors']['content']['_errors'][0]['message'])
+      else:
+        raise errors.InvalidFormBody(data['message'])
+    except KeyError:
+      try:
+        raise errors.InvalidFormBody(data['message'])
+      except KeyError:
+        return Message(data)
+
+  async def fetch_channel(self, id: int, cursor: int=None) -> Message:
+    if cursor is None:
+      data = self.client.get(f'https://discord.com/api/v9/channels/{id}/messages')
+    else:
+      data = self.client.get(f'https://discord.com/api/v9/channels/{id}/messages?before={cursor}')
+    try:
+      data = data.json()
+      try:
+        raise errors.InvalidFormBody(data['channel_id']['_errors'][0]['message'])
+      except KeyError:
+        raise errors.InvalidFormBody(data['message'])
+    except ValueError:
+      return [Message(i) for i in data]
+    except TypeError:
+      return [Message(i) for i in data]
+  
   def run(self):
     self.connect()
     for func in self.on_ready:
