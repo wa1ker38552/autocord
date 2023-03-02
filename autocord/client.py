@@ -1,197 +1,101 @@
-from threading import Thread
-import autocord
-import requests
+import json
 import time
+import asyncio
+import requests
+import websocket
+from autocord import op
+from autocord import errors
+from threading import Thread
+from autocord.types.Me import Me
+from autocord.types.Message import Message
+from autocord.types.Deleted import Deleted
 
-class client:
-    def __init__(self, token):
+class Client:
+  def __init__(self, token, return_type='object'):
+    self.client = requests.Session()
+    self.client.headers = {'Authorization': token}
+    try:
+      data = self.client.get('https://discord.com/api/v9/users/@me')
+      try:
+        data = data.json()
+        data['message']
+        raise errors.UnauthorizedError(data['message'])
+      except KeyError:
         self.token = token
+        self.user = Me(data)
 
-        # create client session
-        self.client = requests.Session()
-        self.client.headers = {'authorization': self.token}
+        self.on_ready = []
+        self.on_message = []
+        self.on_message_delete = []
 
-        # validate token
-        request = self.client.post('https://discord.com/api/v9/channels/1/messages', json={'content': ''})
-        if request.status_code == 401:
-            raise autocord.TokenValidationError('Unable to validate token')
-
-        # get metadata
-        self.FETCH_METADATA()
-        self.ongoing_tasks = {}
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self):
-        pass
-
-    def FETCH_METADATA(self):
-        # can be used as a function to just refresh metadata
-        request = self.client.get('https://discord.com/api/v9/users/@me').json()
-
-        # declare attributes
-        self.bio = request['bio']
-        self.discriminator = request['discriminator']
-        self.email = request['email']
-        self.id = request['id']
-        self.phone = request['phone']
-        self.username = request['username']
-        self.verified = request['verified']
-
-    def SEND_MESSAGE(self, message, channel):
-        data = {'content': message}
-        request = self.client.post(f'https://discord.com/api/v9/channels/{channel}/messages', json=data)
-
-        if request.status_code == 404:
-            raise autocord.NotFoundError(request.json()['message'])
-        elif request.status_code == 400:
-            raise autocord.BadRequestError(request.json()['message'])
-        elif request.status_code == 429:
-            raise autocord.UnauthorizedError(request.json()['message'])
-        return request
-
-    def END_TASK(self, id):
-        # may take up to 1 second for the task to actually be deleted
-        # the function checks to see if the task is deleted every second
-        if str(id) in self.ongoing_tasks:
-            del self.ongoing_tasks[str(id)]
-        else:
-            raise autocord.TaskNotFoundError('Could not find task with specified id')
-
-    def CREATE_TASK(self, messages: dict, channel, offset=0, type=0):
-        # messages should be a dictionary with the message as the key
-        # and the interval as the value
-        if type == 0:
-            # check if function was initiated by user
-            # recursively start the thread
-            Thread(target=lambda: self.CREATE_TASK(messages, channel, offset, type=1)).start()
-            return str(hash(channel+offset))
-        else:
-            # recursively started
-            self.ongoing_tasks[str(hash(channel+offset))] = {
-                'messages': messages,
-                'channel': channel,
-                'offset': offset
+        self.return_type = return_type if return_type in ['object', 'json'] else 'object'
+        self.ws_url = 'wss://gateway.discord.gg/?v=9&encoding=json'
+        self.auth = {
+          "token": self.token,
+          "properties": {
+              "$os": "windows",
+              "$browser": "chrome",
+              "$device": "pc"
+          },
+          "presence": {
+            "game": {
+                "name": "your mom",
+                "type": 0
             }
-            # kill the thread
-            end = False
-            time.sleep(offset)
-            while True:
-                # check to break out of while loop
-                if end is False:
-                    for message in messages:
-                        # check to break out of messages loop
-                        if end is False:
-                            self.SEND_MESSAGE(message, channel)
+          }
+        }
+    
+    except requests.exceptions.JSONDecodeError:
+      raise errors.TooManyRequests(data.text.strip())
 
-                            # keep checking if thread needs to be closed
-                            # check every one second
-                            for i in range(messages[message]):
-                                # check if task id exists within tasks list
-                                if str(hash(channel+offset)) in self.ongoing_tasks:
-                                    time.sleep(1)
-                                else:
-                                    end = True
-                                    break
-                        else:
-                            break
-                else:
-                    break
+  def event(self, func):
+    if func.__name__ == 'on_ready':
+      self.on_ready.append(func)
+    elif func.__name__ == 'on_message':
+      self.on_message.append(func)
+    elif func.__name__ == 'on_message_delete':
+      self.on_message_delete.append(func)
 
-    def CREATE_GROUP(self, users: list):
-        # pass in user id's as strings or ints
-        # add client id onto users list
-        # need to add self id to create a group chat with only the two of you
-        users.append(self.id)
-        data = {'recipients': [str(user) for user in users]}
-        request = self.client.post('https://discord.com/api/v9/users/@me/channels', json=data)
+  def send(self, event, payload):
+    self.ws.send(json.dumps({"op": event, "d": payload}))
 
-        if request.status_code == 400:
-            raise autocord.BadRequestError(request.json()['message'])
-        elif request.status_code == 429:
-            raise autocord.UnauthorizedError(request.json()['message'])
-        return request
+  def recieve_messages(self):
+    while True:
+      data = json.loads(self.ws.recv())
+      if data["op"] == op.DISPATCH:        
+        print(data['t'])
+        if data['t'] == 'MESSAGE_DELETE':
+          if self.return_type == 'json': data = data['d']
+          else: data = Deleted(data['d'])
+          for func in self.on_message_delete:
+            asyncio.run(func(data))
+              
+        elif data["t"] == "MESSAGE_CREATE":
+          if self.return_type == 'json': data = data['d']
+          else: data = Message(data['d'])
+          for func in self.on_message:
+            asyncio.run(func(data))
 
-    def LEAVE_GROUP(self, id, silent=True):
-        # leave group with silent as parameter
-        request = self.client.delete(f'https://discord.com/api/v9/channels/{id}?silent={str(silent).lower()}')
+  def send_heartbeat(self):
+    while self.hb_interval is not None:
+      self.send(op.HEARTBEAT, self.auth)
+      time.sleep(self.hb_interval)
 
-        if request.status_code == 404:
-            raise autocord.NotFoundError(request.json()['message'])
-        elif request.status_code == 400:
-            raise autocord.BadRequestError(request.json()['message'])
-        elif request.status_code == 429:
-            raise autocord.UnauthorizedError(request.json()['message'])
-        return request
+  def connect(self):
+    self.ws = websocket.WebSocket()
+    self.ws.connect(self.ws_url)
+    self.send(op.IDENTIFY, self.auth)
+    response = json.loads(self.ws.recv())
 
-    def BLOCK_USER(self, id):
-        # 2 is delete
-        request = self.client.put(f'https://discord.com/api/v9/users/@me/relationships/{id}', json={'type': 2})
-
-        if request.status_code == 404:
-            raise autocord.NotFoundError(request.json()['message'])
-        elif request.status_code == 400:
-            raise autocord.BadRequestError(request.json()['message'])
-        elif request.status_code == 429:
-            raise autocord.UnauthorizedError(request.json()['message'])
-        return request
-
-    def UNBLOCK_USER(self, id):
-        request = self.client.delete(f'https://discord.com/api/v9/users/@me/relationships/{id}')
-
-        if request.status_code == 404:
-            raise autocord.NotFoundError(request.json()['message'])
-        elif request.status_code == 400:
-            raise autocord.BadRequestError(request.json()['message'])
-        elif request.status_code == 429:
-            raise autocord.UnauthorizedError(request.json()['message'])
-        return request
-
-    def FRIEND_REQUEST(self, id):
-        request = self.client.put(f'https://discord.com/api/v9/users/@me/relationships/{id}', json={})
-
-        if request.status_code == 404:
-            raise autocord.NotFoundError(request.json()['message'])
-        elif request.status_code == 400:
-            raise autocord.BadRequestError(request.json()['message'])
-        elif request.status_code == 429:
-            raise autocord.UnauthorizedError(request.json()['message'])
-        return request
-
-    def CHANGE_STATUS(self, message=None, emoji=None):
-        data = {'custom_status': {'text': message, 'emoji_name': emoji}}
-        request = self.client.patch('https://discord.com/api/v9/users/@me/settings', json=data)
-
-        if request.status_code == 404:
-            raise autocord.NotFoundError(request.json()['message'])
-        elif request.status_code == 400:
-            raise autocord.BadRequestError(request.json()['message'])
-        elif request.status_code == 429:
-            raise autocord.UnauthorizedError(request.json()['message'])
-        return request
-
-    def CHANGE_BIO(self, message=None, color=None):
-        # accent color in hex
-        data = {'bio': message, 'accent_color': color}
-        request = self.client.patch('https://discord.com/api/v9/users/%40me/profile', json=data)
-
-        if request.status_code == 404:
-            raise autocord.NotFoundError(request.json()['message'])
-        elif request.status_code == 400:
-            raise autocord.BadRequestError(request.json()['message'])
-        elif request.status_code == 429:
-            raise autocord.UnauthorizedError(request.json()['message'])
-        return request
-
-    def CHANGE_USERNAME(self, username, password):
-        data = {'password': password, 'username': username}
-        request = self.client.patch('https://discord.com/api/v9/users/@me', json=data)
-
-        if request.status_code == 404:
-            raise autocord.NotFoundError(request.json()['message'])
-        elif request.status_code == 400:
-            raise autocord.BadRequestError(request.json()['message'])
-        elif request.status_code == 429:
-            raise autocord.UnauthorizedError(request.json()['message'])
-        return request
+    if response['op'] != 10:
+      raise errors.UnexpectedSocketResponse('Try running the application again')
+    else:
+      print('Connected to gateway')
+      self.hb_interval = (response["d"]["heartbeat_interval"]-2000)/1000
+      Thread(target=self.send_heartbeat).start()
+      Thread(target=self.recieve_messages).start()
+      
+  def run(self):
+    self.connect()
+    for func in self.on_ready:
+      asyncio.run(func())
