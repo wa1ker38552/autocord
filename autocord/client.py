@@ -27,6 +27,7 @@ class Client:
         self.on_ready = []
         self.on_message = []
         self.on_message_delete = []
+        self.on_message_update = []
 
         self.return_type = return_type if return_type in ['object', 'json'] else 'object'
         self.ws_url = 'wss://gateway.discord.gg/?v=9&encoding=json'
@@ -49,6 +50,8 @@ class Client:
       self.on_message.append(func)
     elif func.__name__ == 'on_message_delete':
       self.on_message_delete.append(func)
+    elif func.__name__ == 'on_message_update':
+      self.on_message_update.append(func)
 
   def send_ws(self, event, payload):
     self.ws.send(json.dumps({"op": event, "d": payload}))
@@ -56,16 +59,22 @@ class Client:
   def recieve_messages(self):
     while True:
       data = json.loads(self.ws.recv())
-      if data["op"] == op.DISPATCH:        
+      if data["op"] == op.DISPATCH:     
         if data['t'] == 'MESSAGE_DELETE':
           if self.return_type == 'json': data = data['d']
           else: data = Deleted(data['d'])
           for func in self.on_message_delete:
             asyncio.run(func(data))
-              
+
+        elif data['t'] == 'MESSAGE_UPDATE':
+          if self.return_type == 'json': data = data['d']
+          else: data = Message(data['d'], self)
+          for func in self.on_message_update:
+            asyncio.run(func(data))
+        
         elif data["t"] == "MESSAGE_CREATE":
           if self.return_type == 'json': data = data['d']
-          else: data = Message(data['d'])
+          else: data = Message(data['d'], self)
           for func in self.on_message:
             asyncio.run(func(data))
 
@@ -88,10 +97,14 @@ class Client:
       Thread(target=self.recieve_messages).start()
 
   # Client functions
-  async def send(self, id: int, content: str=None, attachments: list=None) -> Message:
+  async def send(self, id: int, content: str=None, attachments: list=None, reference: dict=None) -> Message:
+    payload = {'content': content}
+    if reference:
+      payload['message_reference'] = reference
+      
     data = self.client.post(
       f'https://discord.com/api/v9/channels/{id}/messages',
-      json={'content': content}
+      json=payload
     )
     data = data.json()
     try:
@@ -106,7 +119,41 @@ class Client:
       try:
         raise errors.InvalidFormBody(data['message'])
       except KeyError:
-        return Message(data)
+        if self.return_type == 'object':
+          return Message(data, self)
+        else:
+          return data
+
+  async def delete(self, id: int, message: int):
+    data = self.client.delete(f'https://discord.com/api/v9/channels/{id}/messages/{message}')
+    try:
+      data = data.json()
+      try:
+        raise errors.InvalidFormBody(data['errors']['message_id']['_errors'][0]['message'])
+      except KeyError:
+        try:
+          raise errors.InvalidFormBody(data['errors']['channel']['_errors'][0]['message'])
+        except KeyError:
+          raise errors.InvalidFormBody(data['message'])
+    except requests.exceptions.JSONDecodeError: pass
+
+  async def edit(self, id: int, message: int, content: str):
+    data = self.client.patch(f'https://discord.com/api/v9/channels/{id}/messages/{message}', {'content': content})
+    data = data.json()
+    try:
+      raise errors.InvalidFormBody(data['errors']['message_id']['_errors'][0]['message'])
+    except KeyError:
+      try:
+        raise errors.InvalidFormBody(data['errors']['channel']['_errors'][0]['message'])
+      except KeyError:
+        try:
+          raise errors.InvalidFormBody(data['message'])
+        except KeyError:
+          if self.return_type == 'object':
+            return Message(data, self)
+          else:
+            return data
+        
 
   async def fetch_channel(self, id: int, cursor: int=None) -> Message:
     if cursor is None:
@@ -119,10 +166,13 @@ class Client:
         raise errors.InvalidFormBody(data['channel_id']['_errors'][0]['message'])
       except KeyError:
         raise errors.InvalidFormBody(data['message'])
-    except ValueError:
-      return [Message(i) for i in data]
-    except TypeError:
-      return [Message(i) for i in data]
+    except ValueError: pass
+    except TypeError: pass
+
+    if self.return_type == 'object':
+      return [Message(i, self) for i in data]
+    else:
+      return data
   
   def run(self):
     self.connect()
