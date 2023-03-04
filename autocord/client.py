@@ -97,8 +97,8 @@ class Client:
       Thread(target=self.recieve_messages).start()
 
   # Client functions
-  async def send(self, id: int, content: str=None, attachments: list=None, reference: dict=None) -> Message:
-    payload = {'content': content}
+  async def send(self, id: int, content: str=None, attachments: list=None, reference: dict=None, mention: bool=True) -> Message:
+    payload = {'content': content, 'allowed_mentions': {'replied_user': mention}}
     if reference:
       payload['message_reference'] = reference
       
