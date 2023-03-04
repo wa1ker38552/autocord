@@ -4,7 +4,9 @@ from autocord.types.Deleted import PsuedoChannel
 from autocord.types.Attachment import Attachment
 
 class Message:
-  def __init__(self, data: dict):
+  def __init__(self, data: dict, client=None):
+    self.__client = client
+    
     self.type: int = data['type']
     self.tts: bool = data['tts']
     self.timestamp: str = data['timestamp']
@@ -37,6 +39,15 @@ class Message:
       self.guild_id: int = data['guild_id']
     except KeyError:
       self.guild_id: int = None
+
+  def reply(self, content: str):
+    return self.__client.send(self.channel.id, content=content, reference={'channel_id': self.channel.id, 'message_id': self.id})
+
+  def delete(self):
+    return self.__client.delete(self.channel.id, self.id)
+
+  def edit(self, content: str):
+    return self.__client.edit(self.channel.id, self.id, content)
 
 class PsuedoMember:
   def __init__(self, data: dict):
