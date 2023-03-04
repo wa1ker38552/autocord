@@ -31,7 +31,8 @@ async def on_ready():
     
 @client.event
 async def on_message(message):
-    print(f"{message.author}: {message.content}")
+    if message.content == 'ping':
+        message.reply('pong')
     
 client.run()
 ```
