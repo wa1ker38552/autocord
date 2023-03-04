@@ -40,8 +40,8 @@ class Message:
     except KeyError:
       self.guild_id: int = None
 
-  def reply(self, content: str):
-    return self.__client.send(self.channel.id, content=content, reference={'channel_id': self.channel.id, 'message_id': self.id})
+  def reply(self, content: str, mention: bool=True):
+    return self.__client.send(self.channel.id, content=content, reference={'channel_id': self.channel.id, 'message_id': self.id}, mention=mention)
 
   def delete(self):
     return self.__client.delete(self.channel.id, self.id)
