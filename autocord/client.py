@@ -7,6 +7,7 @@ from autocord import op
 from autocord import errors
 from threading import Thread
 from autocord.types.Me import Me
+from autocord.types.Member import Member
 from autocord.types.Message import Message
 from autocord.types.Deleted import Deleted
 
@@ -153,8 +154,23 @@ class Client:
             return Message(data, self)
           else:
             return data
-        
 
+  async def fetch_user(self, id: int) -> Member:
+    data = self.client.get(f'https://discord.com/api/v9/users/{id}/profile')
+    try:
+      data = data.json()
+      data = data['user']
+    except KeyError:
+      try:
+        raise errors.InvalidFormBody(data['errors']['user_id']['_errors'][0]['message'])
+      except KeyError:
+        raise errors.InvalidFormBody(data['message'])
+
+    if self.return_type == 'object':
+      return Member(data)
+    else:
+      return data
+  
   async def fetch_channel(self, id: int, cursor: int=None) -> Message:
     if cursor is None:
       data = self.client.get(f'https://discord.com/api/v9/channels/{id}/messages')
