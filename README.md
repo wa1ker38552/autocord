@@ -18,6 +18,7 @@ Requires:
 - Option to return data as JSON or Object
 - Easy selfbot setup
 - Easily customizable
+- Uses the discord user API 
 
 **Quick Example ⚡**
 ```py
@@ -33,6 +34,12 @@ async def on_ready():
 async def on_message(message):
     if message.content == 'ping':
         await message.reply('pong')
+        await client.send(message.channel.id, f'Replied to {message.author.username}')
     
 client.run()
 ```
+
+**Notes 📜**
+- No embed send support (autocord not meant to be used on actual bot accounts)
+- No attachment send support (working on it...)
+- `client.create_dm()` returns a `DmChannel` object. However, occasionally, you can't send messages without solving a captcha 
