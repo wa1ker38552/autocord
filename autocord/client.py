@@ -10,6 +10,7 @@ from autocord.types.Me import Me
 from autocord.types.Member import Member
 from autocord.types.Message import Message
 from autocord.types.Deleted import Deleted
+from autocord.types.DmChannel import DmChannel
 
 class Client:
   def __init__(self, token, return_type='object'):
@@ -98,7 +99,7 @@ class Client:
       Thread(target=self.recieve_messages).start()
 
   # Client functions
-  async def send(self, id: int, content: str=None, attachments: list=None, reference: dict=None, mention: bool=True) -> Message:
+  async def send(self, id: int, content: str=None, attachments: list=None, reference: dict=None, mention: bool=True):
     payload = {'content': content, 'allowed_mentions': {'replied_user': mention}}
     if reference:
       payload['message_reference'] = reference
@@ -189,6 +190,20 @@ class Client:
       return [Message(i, self) for i in data]
     else:
       return data
+
+  async def create_dm(self, user: int):
+    data = self.client.post('https://discord.com/api/v9/users/@me/channels', json={'recipients': [user]})
+    data = data.json()
+    try:
+      try:
+        raise errors.InvalidFormBody(data['errors']['recipients']['0']['_errors'][0]['message'])
+      except KeyError:
+        raise errors.InvalidFormBody(data['message'])
+    except KeyError:
+      if self.return_type == 'object':
+        return DmChannel(data, self)
+      else:
+        return data
   
   def run(self):
     self.connect()
