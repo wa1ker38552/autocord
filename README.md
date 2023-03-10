@@ -43,3 +43,4 @@ client.run()
 - No embed send support (autocord not meant to be used on actual bot accounts)
 - No attachment send support (working on it...)
 - `client.create_dm()` returns a `DmChannel` object. However, occasionally, you can't send messages without solving a captcha 
+- Embed fields don't show
